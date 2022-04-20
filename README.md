@@ -1,4 +1,4 @@
-# RL-Calculate
-A simple calculate tool\n
-origin code\n
-download in tag
+# Microwave Calculator
+A simple calculate tool for reflection loss.   
+origin code is offered.   
+the app can download in tag.
