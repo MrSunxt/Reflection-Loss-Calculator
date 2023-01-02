@@ -18,10 +18,11 @@ thick_count = 0                         # 总点数
 
 class RlCalculate(QThread):
     display_sig = pyqtSignal(str)
+    process_sig = pyqtSignal(str)
     path_sig = pyqtSignal(str)
     flag_sig = pyqtSignal(bool)
     except_sig = pyqtSignal(str)
-    except_sig2 = pyqtSignal(bool)
+    except_sig2 = pyqtSignal(int)
 
     def __init__(self):
         super(RlCalculate, self).__init__()
@@ -89,9 +90,12 @@ class RlCalculate(QThread):
             f = data[0]
             e = data[1]
             u = data[2]
-            self.display_sig.emit('& 初始化结果文件......')
             self.display_sig.emit('& 频率范围：{}-{}GHz'.format(f[0]/1000000000,
                                                            f[-1]/1000000000))
+            self.display_sig.emit(
+                '& 厚度范围：{}-{}mm，间隔{}mm\n'
+                '& 共计 {} 个数据点'.format(start_thick, end_thick, step, thick_count))
+            self.display_sig.emit('& 初始化结果文件......')
             item = ['frequency']
             for i in range(thick_count):
                 item.append(str(round(start_thick + i * step, 2)) + 'mm')
@@ -104,10 +108,7 @@ class RlCalculate(QThread):
             ws_rl.append(item)
             ws_im = wb.create_sheet('IM')
             ws_im.append(item)
-            self.display_sig.emit(
-                '& 厚度范围：{}-{}mm，间隔{}mm\n'
-                '& 共计 {} 个数据点\n'
-                '& 计算中，请耐心等待结果......'.format(start_thick, end_thick, step, thick_count))
+            self.display_sig.emit('& 计算中，请耐心等待结果......')
             for i in range(0, len(f)):
                 list_rl = [f[i] / 1000000000]
                 list_im = [f[i] / 1000000000]
@@ -122,15 +123,17 @@ class RlCalculate(QThread):
                     list_im.append(im)
                 ws_rl.append(list_rl)
                 ws_im.append(list_im)
+                self.process_sig.emit('计算进度：{}{:.1f}%'.format('▉▉'*(int((i+1)*100/len(f))//10), (i+1)*100/len(f)))
+            self.display_sig.emit('& 存储中......')
             wb.save('./RL-IM.xlsx')
             wb.close()
         except Exception as err:
-            self.except_sig2.emit(False)
-            self.except_sig.emit('******************ERROR******************\n' + str(err) +
-                                 '\n*******************************************')
-            self.except_sig2.emit(True)
+            self.except_sig2.emit(1)
+            self.except_sig.emit('*****************ERROR*****************\n' + str(err) +
+                                 '\n*****************************************')
+            self.except_sig2.emit(0)
         else:
-            self.display_sig.emit('& 计算结束，结果保存在：RL-IM.xlsx')
+            self.display_sig.emit('& 处理完成，结果保存在：RL-IM.xlsx')
             self.path_sig.emit('点击查看可直接打开 RL-IM.xlsx')
         finally:
             t2 = self.check_time()
@@ -144,7 +147,7 @@ class AlphaCalculate(QThread):
     path_sig = pyqtSignal(str)
     flag_sig = pyqtSignal(bool)
     except_sig = pyqtSignal(str)
-    except_sig2 = pyqtSignal(bool)
+    except_sig2 = pyqtSignal(int)
 
     def __init__(self):
         super(AlphaCalculate, self).__init__()
@@ -223,10 +226,10 @@ class AlphaCalculate(QThread):
             wb.save('./alpha.xlsx')
             wb.close()
         except Exception as err:
-            self.except_sig2.emit(False)
-            self.except_sig.emit('******************ERROR******************\n' + str(err) +
-                                 '\n*******************************************')
-            self.except_sig2.emit(True)
+            self.except_sig2.emit(1)
+            self.except_sig.emit('*****************ERROR*****************\n' + str(err) +
+                                 '\n*****************************************')
+            self.except_sig2.emit(0)
         else:
             self.display_sig.emit('& 计算结束，结果保存在：alpha.xlsx')
             self.path_sig.emit('点击查看可直接打开 alpha.xlsx')
@@ -272,7 +275,7 @@ class MyWindow(QWidget):
         # 主窗口设置
         self.setFont(QFont('Microsoft YaHei', 10))
         self.setFixedSize(550, 630)
-        self.setWindowTitle('RL Calculator v2.0.0')
+        self.setWindowTitle('RL Calculator v2.0.1')
         self.setWindowIcon(QIcon('D:/Pycharm/Project/PyQtProject/pic.ico'))
         self.setStyleSheet('background-color:rgb(240, 248, 255)')
         # 主布局
@@ -339,7 +342,7 @@ class MyWindow(QWidget):
         self.c_button2.setStyleSheet('background-color:rgb(151, 255, 255)')
         # 展示类样式
         self.display_text.setFixedSize(360, 270)
-        self.display_text.setTextColor(QColor(165, 42, 42))
+        self.display_text.setTextColor(QColor(0, 0, 139))
         self.display_text.setStyleSheet('background-color:rgb(253, 245, 230)')
         self.display_text.setPlaceholderText('注意事项：\n'
                                              '# 计算开始前请先关闭 RL-IM.xlsx ！！！\n'
@@ -352,6 +355,7 @@ class MyWindow(QWidget):
         self.check_button.setFixedSize(100, 35)
         self.check_button.setStyleSheet('background-color:rgb(230, 230, 250)')
         self.path_text.setFixedSize(360, 35)
+        self.path_text.setTextColor(QColor(0, 0, 139))
         self.path_text.setStyleSheet('background-color:rgb(253, 245, 230)')
         self.path_text.setPlaceholderText('数据文件')
         # 下拉框样式
@@ -428,7 +432,7 @@ class MyWindow(QWidget):
         os.startfile(str_path.split(' ')[-1])
 
     def click_about(self):
-        msg = 'Version：2.0.0<br>' \
+        msg = 'Version：2.0.1<br>' \
               'Author：Xuetao Sun<br>Download：' \
               '<a href="https://github.com/MrSunxt/Reflection-Loss-Calculator/releases">GitHub</a><br>' \
               'Tutorial：<a href="https://www.bilibili.com/video/BV15A411S7BP/?vd_source=b29549a87424fe11cefd502a92abc9d7">' \
@@ -457,7 +461,8 @@ class MyWindow(QWidget):
             self.rl_im.flag_sig.connect(self.enable_button)
             self.rl_im.flag_sig.connect(self.button_type1)
             self.rl_im.display_sig.connect(self.displaytext)
-            self.rl_im.except_sig2.connect(self.except_col)
+            self.rl_im.process_sig.connect(self.p_text)
+            self.rl_im.except_sig2.connect(self.display_color)
             self.rl_im.except_sig.connect(self.except_msg)
             self.rl_im.path_sig.connect(self.p_text)
             self.rl_im.start()
@@ -473,7 +478,7 @@ class MyWindow(QWidget):
             self.a.flag_sig.connect(self.enable_button)
             self.a.flag_sig.connect(self.button_type2)
             self.a.display_sig.connect(self.displaytext)
-            self.a.except_sig2.connect(self.except_col)
+            self.a.except_sig2.connect(self.display_color)
             self.a.except_sig.connect(self.except_msg)
             self.a.path_sig.connect(self.p_text)
             self.a.start()
@@ -481,11 +486,11 @@ class MyWindow(QWidget):
     def except_msg(self, message):
         self.display_text.append('\n' + message + '\n')
 
-    def except_col(self, flag):
-        if flag is False:
-            self.display_text.setTextColor(QColor(0, 0, 139))
-        else:
+    def display_color(self, flag):
+        if flag == 1:
             self.display_text.setTextColor(QColor(165, 42, 42))
+        else:
+            self.display_text.setTextColor(QColor(0, 0, 139))
 
     def displaytext(self, t):
         self.display_text.append(t)
